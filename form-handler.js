@@ -1,37 +1,59 @@
 document.addEventListener('DOMContentLoaded', function() {
     const form = document.getElementById('contactForm');
+    const errors = {
+        nombre: document.getElementById('error-nombre'),
+        email: document.getElementById('error-email'),
+        telefono: document.getElementById('error-telefono'),
+        captcha: document.getElementById('error-captcha'),
+    };
+    const responseDiv = document.getElementById('response');
+
+    function clearErrors() {
+        errors.nombre.textContent = '';
+        errors.email.textContent = '';
+        errors.telefono.textContent = '';
+        errors.captcha.textContent = '';
+        responseDiv.style.display = 'none';
+    }
+
     form.addEventListener('submit', async function(event) {
         event.preventDefault();
+        clearErrors();
 
-        let errorMsgList = [];
+        let hasError = false;
 
-        // Validación cliente
+        // Validación de nombre
         const nombre = form.name.value.trim();
-        if (nombre === "" || !/^[a-zA-Z ]+$/.test(nombre)) {
-            errorMsgList.push("Solo letras y espacios en blanco permitidos en el nombre.");
+        if (nombre.length < 8) {
+            errors.nombre.textContent = "El nombre debe tener al menos 8 caracteres.";
+            hasError = true;
+        } else if (!/[A-Z]/.test(nombre) || !/[a-z]/.test(nombre)) {
+            errors.nombre.textContent = "El nombre debe contener al menos una letra mayúscula y una minúscula.";
+            hasError = true;
         }
 
+        // Validación de email
         const email = form.email.value.trim();
-        if (email === "" || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
-            errorMsgList.push("Formato de Correo Inválido.");
+        if (!/^([a-zA-Z0-9_.+-])+@(gmail\.com|hotmail\.com)$/.test(email)) {
+            errors.email.textContent = "Solo se permiten correos de gmail.com o hotmail.com.";
+            hasError = true;
         }
 
+        // Validación de teléfono panameño (+507 1234-5678)
         const telefono = form.telephone.value.trim();
-        const telefonoRegex = /^\d{3}-\d{3}-\d{4}$/;
-        if (!telefonoRegex.test(telefono)) {
-            errorMsgList.push("Formato de Teléfono inválido. Ejemplo de Formato Valido: 123-456-7890.");
+        if (!/^\d{4}-\d{4}$/.test(telefono)) {
+            errors.telefono.textContent = "El teléfono debe ser de Panamá: 1234-5678";
+            hasError = true;
         }
 
+        // Validación de captcha
         const captcha = form.captcha.value.trim();
         if (captcha === "") {
-            errorMsgList.push("El código CAPTCHA es obligatorio.");
+            errors.captcha.textContent = "El código CAPTCHA es obligatorio.";
+            hasError = true;
         }
 
-        if (errorMsgList.length > 0) {
-            document.getElementById('errors').innerHTML = errorMsgList.join('<br>');
-            document.getElementById('response').innerHTML = "";
-            return;
-        }
+        if (hasError) return;
 
         // Si no hay errores en cliente, envía al backend
         const formData = new FormData(form);
@@ -42,21 +64,26 @@ document.addEventListener('DOMContentLoaded', function() {
             });
             const result = await response.json();
 
+            clearErrors();
+
             if (!result.success) {
-                if (Array.isArray(result.errors)) {
-                    document.getElementById('errors').innerHTML = result.errors.join('<br>');
-                } else {
-                    document.getElementById('errors').innerHTML = result.errors || "Ocurrió un error desconocido.";
+                if (typeof result.errors === 'object' && result.errors !== null) {
+                    // Errores por campo
+                    Object.keys(result.errors).forEach(function(key) {
+                        if (errors[key]) errors[key].textContent = result.errors[key];
+                    });
+                } else if (typeof result.errors === 'string') {
+                    responseDiv.innerHTML = result.errors;
+                    responseDiv.style.display = 'block';
                 }
-                document.getElementById('response').innerHTML = "";
             } else {
-                document.getElementById('errors').innerHTML = "";
-                document.getElementById('response').innerHTML = "¡Registro exitoso!";
+                responseDiv.innerHTML = "¡Registro exitoso!";
+                responseDiv.style.display = 'block';
                 form.reset();
             }
         } catch (err) {
-            document.getElementById('errors').innerHTML = "Error de conexión con el servidor.";
-            document.getElementById('response').innerHTML = "";
+            responseDiv.innerHTML = "Error de conexión con el servidor.";
+            responseDiv.style.display = 'block';
         }
     });
 });
